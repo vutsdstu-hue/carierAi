@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+
+  // Profile fields used by the frontend
+  name      String
+  location  String
+  avatar    String
+  position  String
+  experience String
+  level     String
+  joinDate  String
+
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  skills         Skill[]
+  testResults    TestResult[]
+  jobApplications JobApplication[]
+}
+
+model Skill {
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name     String
+  level    Int
+  category String
+
+  @@unique([userId, name, category])
+}
+
+model TestResult {
+  id         String @id @default(uuid())
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  testId     String
+  testTitle  String
+  score      Int
+  date       String
+  answers    Json
+  timeSpent  Int
+
+  @@unique([userId, testId])
+}
+
+model JobApplication {
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobId    String
+  company  String
+  position String
+  status   String
+  date     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jobId])
+}
+
