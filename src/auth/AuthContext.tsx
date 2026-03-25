@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Temporarily set token so apiFetch attaches it
       setToken(t);
-      const res = await apiFetch<{ user: AuthUser }>("/api/auth/me", { method: "GET" });
+      const res = await apiFetch<{ user: AuthUser }>("/auth/me", { method: "GET" });
       setUser(res.user);
     } catch {
       clearAuthToken();
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const data = await apiFetch<{ token: string; user: AuthUser }>("/api/auth/login", {
+      const data = await apiFetch<{ token: string; user: AuthUser }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     setLoading(true);
     try {
-      const data = await apiFetch<{ token: string; user: AuthUser }>("/api/auth/register", {
+      const data = await apiFetch<{ token: string; user: AuthUser }>("/auth/register", {
         method: "POST",
         body: JSON.stringify(payload),
       });
