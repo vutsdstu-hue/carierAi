@@ -44,10 +44,25 @@ router.post("/job-applications", requireAuth, async (req, res) => {
   const userId = req.user!.id;
   const { jobId, company, position, status, date } = parsed.data;
 
+  const existing = await prisma.jobApplication.findUnique({
+    where: { userId_jobId: { userId, jobId } },
+  });
+
   const upserted = await prisma.jobApplication.upsert({
     where: { userId_jobId: { userId, jobId } },
     create: { userId, jobId, company, position, status, date },
     update: { company, position, status, date },
+  });
+
+  await prisma.jobApplicationLog.create({
+    data: {
+      jobApplicationId: upserted.id,
+      jobId: upserted.jobId,
+      actorUserId: userId,
+      action: existing ? "UPDATED" : "CREATED",
+      fromStatus: existing?.status ?? null,
+      toStatus: upserted.status,
+    },
   });
 
   res.json({
@@ -64,8 +79,23 @@ router.delete("/job-applications/:jobId", requireAuth, async (req, res) => {
   const userId = req.user!.id;
   const jobId = req.params.jobId;
 
-  await prisma.jobApplication.delete({
+  const existing = await prisma.jobApplication.findUnique({
     where: { userId_jobId: { userId, jobId } },
+  });
+
+  if (!existing) return res.status(404).json({ message: "Job application not found" });
+
+  await prisma.jobApplication.delete({ where: { userId_jobId: { userId, jobId } } });
+
+  await prisma.jobApplicationLog.create({
+    data: {
+      jobApplicationId: existing.id,
+      jobId: existing.jobId,
+      actorUserId: userId,
+      action: "DELETED",
+      fromStatus: existing.status,
+      toStatus: null,
+    },
   });
 
   res.json({ ok: true });

@@ -1,73 +1,126 @@
-# Welcome to your Lovable project
+# IT Career Hub (React + Vite + PostgreSQL + Prisma + JWT)
 
-## Project info
+Этот проект состоит из двух частей:
+- Frontend: React/Vite (корень репозитория)
+- Backend: Node.js/Express + Prisma + PostgreSQL (папка `backend/`)
 
-**URL**: https://lovable.dev/projects/38ca80ec-a86e-4a48-8c64-259ea43270be
+Frontend обращается к backend через прокси по пути `/api` (см. `vite.config.ts`).
 
-## How can I edit this code?
+## Что нужно заранее
+1. Node.js (лучше текущий LTS), npm
+2. PostgreSQL:
+   - либо локально (pgAdmin)
+   - либо через Docker (рекомендую, если Docker есть)
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/38ca80ec-a86e-4a48-8c64-259ea43270be) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## Быстрый старт на другом ПК (рекомендованный вариант: Docker для Postgres)
+### 1) Склонировать проект
+```bash
+git clone https://github.com/Samultra/aiCariers.git
+cd aiCariers
 ```
 
-**Edit a file directly in GitHub**
+### 2) Запустить PostgreSQL через Docker
+В корне проекта:
+```bash
+docker-compose up -d
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+После этого Postgres будет слушать `localhost:5432`.
+В `docker-compose.yml` заданы креды:
+- user: `postgres`
+- password: `postgres`
+- db: `itcareerhub`
 
-**Use GitHub Codespaces**
+### 3) Настроить переменные окружения backend
+```bash
+cd backend
+copy .env.example .env
+```
+Открой `backend/.env` и проверь/замени строку:
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/itcareerhub?schema=public
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 4) Установить зависимости backend и сделать миграции
+```bash
+npm i
+npm run prisma:generate
+npm run prisma:migrate
+npm run seed
+```
 
-## What technologies are used for this project?
+Что делает `seed`:
+- создаёт первого пользователя с ролью `ADMIN` (если `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` заданы)
 
-This project is built with:
+### 5) Запустить backend
+```bash
+npm run dev
+```
+Backend будет доступен по:
+- `http://localhost:3001/health`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 6) Установить зависимости frontend и запустить
+Открой новое окно терминала (или вернись в корень):
+```bash
+cd ..
+npm i
+npm run dev
+```
+Обычно frontend откроется на:
+- `http://localhost:5173/`
 
-## How can I deploy this project?
+## Вход по ролям
+По умолчанию после `npm run seed` в базе будет админ:
+- `SEED_ADMIN_EMAIL` (по `backend/.env.example` это `admin@example.com`)
+- `SEED_ADMIN_PASSWORD` (по `backend/.env.example` это `change_me_strong_password`)
 
-Simply open [Lovable](https://lovable.dev/projects/38ca80ec-a86e-4a48-8c64-259ea43270be) and click on Share -> Publish.
+Модераторов/пользователей в таблицах автоматически `seed` НЕ создаёт.
 
-## Can I connect a custom domain to my Lovable project?
+## Запуск без Docker (Postgres локально через pgAdmin)
+### 1) Создай БД и пользователя
+В pgAdmin выполни запросы **по отдельности** (важно: `CREATE DATABASE` нельзя внутри одной транзакции):
 
-Yes, you can!
+```sql
+-- role
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'itcareerhub_user') THEN
+    CREATE ROLE itcareerhub_user LOGIN PASSWORD 'itcareerhub_dev_password';
+  END IF;
+END $$;
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```sql
+-- database (отдельно!)
+CREATE DATABASE itcareerhub OWNER itcareerhub_user;
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```sql
+-- права (отдельно!)
+GRANT ALL PRIVILEGES ON DATABASE itcareerhub TO itcareerhub_user;
+ALTER ROLE itcareerhub_user CREATEDB;
+```
+
+### 2) Поставь `DATABASE_URL` в `backend/.env`
+Строка должна соответствовать вашим кредам:
+```env
+DATABASE_URL=postgresql://itcareerhub_user:itcareerhub_dev_password@localhost:5432/itcareerhub?schema=public
+```
+
+### 3) Дальше как обычно
+```bash
+cd backend
+npm i
+npm run prisma:generate
+npm run prisma:migrate
+npm run seed
+```
+
+## Если миграции падают на shadow database
+Сообщение вида “нет прав для создания базы данных” означает, что Prisma пытается создать shadow DB.
+Решение: дай роли право `CREATEDB` (см. `ALTER ROLE ... CREATEDB;` в разделе выше) или используй superuser для `DATABASE_URL`.
+
+## Примечание про API
+В режиме dev frontend проксирует запросы на `/api` в `http://localhost:3001`.
+Поэтому **backend должен быть доступен с того же ПК**, где запущен frontend (или нужно поменять конфигурацию прокси/URL).
+

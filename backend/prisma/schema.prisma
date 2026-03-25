@@ -13,6 +13,20 @@ enum Role {
   ADMIN
 }
 
+enum JobApplicationLogAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  DELETED
+}
+
+enum TestDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -34,6 +48,7 @@ model User {
   skills         Skill[]
   testResults    TestResult[]
   jobApplications JobApplication[]
+  jobApplicationLogs JobApplicationLog[] @relation("UserJobApplicationLogs")
 }
 
 model Skill {
@@ -63,6 +78,19 @@ model TestResult {
   @@unique([userId, testId])
 }
 
+model TestDefinition {
+  id          String         @id
+  title       String
+  category    String
+  difficulty  TestDifficulty
+  timeLimit   Int
+  description String
+  questions   Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model JobApplication {
   id       String @id @default(uuid())
   userId   String
@@ -76,5 +104,42 @@ model JobApplication {
   createdAt DateTime @default(now())
 
   @@unique([userId, jobId])
+
+  logs JobApplicationLog[] @relation("JobApplicationLogs")
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  title       String
+  company     String
+  location    String
+  salary      String
+  type        String
+  description String
+  skills      String[]
+  postedTime  String
+  aiMatch     Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobApplicationLog {
+  id               String               @id @default(uuid())
+  jobApplicationId String
+  jobId            String
+  actorUserId      String
+  action           JobApplicationLogAction
+  fromStatus       String?
+  toStatus         String?
+  note             String?
+  hidden           Boolean              @default(false)
+  createdAt        DateTime             @default(now())
+
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade, name: "JobApplicationLogs")
+  actor          User           @relation(fields: [actorUserId], references: [id], onDelete: Cascade, name: "UserJobApplicationLogs")
+
+  @@index([jobId])
+  @@index([actorUserId])
 }
 

@@ -2,8 +2,11 @@ import { getAuthToken } from "./authStorage";
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
+  const isFormDataBody = typeof FormData !== "undefined" && options?.body instanceof FormData;
+  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL ? String((import.meta as any).env.VITE_API_BASE_URL) : "";
+
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
     ...(options?.headers ? (options.headers as Record<string, string>) : {}),
   };
 
@@ -11,7 +14,8 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(path, {
+  const url = apiBase ? `${apiBase.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}` : path;
+  const res = await fetch(url, {
     ...options,
     headers,
   });
@@ -20,8 +24,14 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    const message = data?.message ?? `Request failed with ${res.status}`;
-    throw new Error(message);
+    const messageBase = data?.message ?? `Request failed with ${res.status}`;
+    const more =
+      data?.errors && typeof data.errors === "object"
+        ? `: ${JSON.stringify(data.errors)}`
+        : data?.errors && typeof data.errors !== "object"
+          ? `: ${String(data.errors)}`
+          : "";
+    throw new Error(`${messageBase}${more}`);
   }
 
   return data as T;

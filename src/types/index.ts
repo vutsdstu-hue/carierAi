@@ -98,3 +98,25 @@ export interface JobApplication {
   status: 'Отклик отправлен' | 'В процессе' | 'Получен ответ' | 'Отклонен';
   date: string;
 }
+
+export interface JobApplicationLogUserRef {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export type JobApplicationLogAction = "CREATED" | "UPDATED" | "STATUS_CHANGED" | "DELETED";
+
+export interface JobApplicationLog {
+  id: string;
+  jobApplicationId: string;
+  jobId: string;
+  applicant: JobApplicationLogUserRef;
+  actor: JobApplicationLogUserRef;
+  action: JobApplicationLogAction;
+  fromStatus: string | null;
+  toStatus: string | null;
+  note?: string | null;
+  hidden?: boolean;
+  createdAt: string | Date;
+}

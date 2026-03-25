@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   User, 
   Mail, 
@@ -32,6 +33,14 @@ export const Profile = ({ onRequireAuth }: { onRequireAuth?: () => void }) => {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+
+  const [recommendations, setRecommendations] = useState<string[]>([
+    "Изучите TypeScript более глубоко - это повысит ваши шансы на Senior позицию",
+    "Рассмотрите изучение Next.js для fullstack разработки",
+    "Пройдите тест по системному дизайну для роста до Lead позиции",
+  ]);
+  const [moreRecsLoading, setMoreRecsLoading] = useState(false);
 
   const fetchAll = async () => {
     if (!user) return;
@@ -90,11 +99,105 @@ export const Profile = ({ onRequireAuth }: { onRequireAuth?: () => void }) => {
     { name: "First Steps", description: "Прошел первый тест на платформе", icon: "🎯", date: "05.03.2024" }
   ];
 
-  const recommendations = [
-    "Изучите TypeScript более глубоко - это повысит ваши шансы на Senior позицию",
-    "Рассмотрите изучение Next.js для fullstack разработки",
-    "Пройдите тест по системному дизайну для роста до Lead позиции"
-  ];
+  const generateMoreRecommendations = () => {
+    const skills = new Set(userSkills.map((s) => s.name.toLowerCase()));
+    const recs: string[] = [];
+
+    if (!skills.has("docker")) recs.push("Добавьте Docker в стек: контейнеризация часто требуется даже на junior/middle позициях.");
+    if (!skills.has("sql") && !skills.has("postgresql")) recs.push("Подтяните SQL и PostgreSQL: это ускорит рост до fullstack/lead уровней.");
+    if (!skills.has("testing") && !skills.has("jest") && !skills.has("vitest")) recs.push("Прокачайте тестирование (unit/integration): это повысит качество и доверие к вашим фичам.");
+
+    const lastTest = testResults[0];
+    if (lastTest && lastTest.score < 70) {
+      recs.push(`Пересдайте тест «${lastTest.testTitle}» после повторения темы — цель: 80%+.`);
+    } else if (testResults.length === 0) {
+      recs.push("Пройдите 1-2 теста по вашей специализации и сохраните результаты в профиле — это усилит резюме.");
+    }
+
+    const inProgressApps = jobApplications.filter((a) => a.status === "В процессе").length;
+    if (inProgressApps > 0) {
+      recs.push("Сделайте follow-up по откликам «В процессе»: короткое письмо/сообщение повышает шанс ответа.");
+    }
+
+    // remove duplicates and already shown
+    const existing = new Set(recommendations);
+    return recs.filter((r) => !existing.has(r));
+  };
+
+  const handleMoreRecommendations = async () => {
+    setMoreRecsLoading(true);
+    try {
+      const more = generateMoreRecommendations();
+      if (more.length === 0) {
+        toast({ title: "Рекомендации", description: "Пока нет новых рекомендаций — вы уже многое закрыли." });
+        return;
+      }
+      // add at most 3 at a time for UX
+      setRecommendations((prev) => [...prev, ...more.slice(0, 3)]);
+    } finally {
+      setMoreRecsLoading(false);
+    }
+  };
+
+  const downloadResume = () => {
+    if (!userData) return;
+
+    const lines: string[] = [];
+    lines.push(`# Резюме: ${userData.name}`);
+    lines.push("");
+    lines.push(`- **Должность**: ${userData.position}`);
+    lines.push(`- **Локация**: ${userData.location}`);
+    lines.push(`- **Email**: ${userData.email}`);
+    lines.push(`- **Уровень**: ${userData.level}`);
+    lines.push(`- **Опыт**: ${userData.experience}`);
+    lines.push(`- **Дата регистрации**: ${userData.joinDate}`);
+    lines.push("");
+
+    lines.push("## Навыки");
+    if (userSkills.length === 0) {
+      lines.push("- —");
+    } else {
+      for (const s of userSkills) {
+        lines.push(`- **${s.name}** (${s.category}) — ${s.level}%`);
+      }
+    }
+    lines.push("");
+
+    lines.push("## Результаты тестов");
+    if (testResults.length === 0) {
+      lines.push("- —");
+    } else {
+      for (const t of testResults) {
+        lines.push(`- **${t.testTitle}** — ${t.score}% (${t.date}), время: ${t.timeSpent} мин`);
+      }
+    }
+    lines.push("");
+
+    lines.push("## Отклики на вакансии");
+    if (jobApplications.length === 0) {
+      lines.push("- —");
+    } else {
+      for (const a of jobApplications) {
+        lines.push(`- **${a.position}** — ${a.company} — ${a.status} (${a.date}), jobId: \`${a.jobId}\``);
+      }
+    }
+    lines.push("");
+
+    lines.push("## Рекомендации");
+    for (const r of recommendations) lines.push(`- ${r}`);
+    lines.push("");
+
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName = userData.name.replace(/[^\p{L}\p{N}\s_-]+/gu, "").trim().replace(/\s+/g, "-") || "resume";
+    a.href = url;
+    a.download = `resume-${safeName}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   if (authLoading) {
     return <div className="min-h-screen bg-background py-8 text-center text-muted-foreground">Загрузка...</div>;
@@ -181,7 +284,7 @@ export const Profile = ({ onRequireAuth }: { onRequireAuth?: () => void }) => {
                         <Edit size={16} className="mr-2" />
                         Редактировать
                       </Button>
-                      <Button className="bg-gradient-to-r from-primary to-accent">
+                      <Button className="bg-gradient-to-r from-primary to-accent" onClick={downloadResume}>
                         <Download size={16} className="mr-2" />
                         Скачать резюме
                       </Button>
@@ -302,7 +405,7 @@ export const Profile = ({ onRequireAuth }: { onRequireAuth?: () => void }) => {
                         >
                           {app.status}
                         </Badge>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => setSelectedApplication(app)} aria-label="Подробнее об отклике">
                           <Eye size={16} />
                         </Button>
                         <Button
@@ -368,7 +471,7 @@ export const Profile = ({ onRequireAuth }: { onRequireAuth?: () => void }) => {
                     </div>
                   ))}
                 </div>
-                <Button className="w-full mt-4 bg-gradient-to-r from-primary to-accent">
+                <Button className="w-full mt-4 bg-gradient-to-r from-primary to-accent" onClick={() => void handleMoreRecommendations()} disabled={moreRecsLoading}>
                   Получить больше рекомендаций
                 </Button>
               </CardContent>
@@ -376,6 +479,61 @@ export const Profile = ({ onRequireAuth }: { onRequireAuth?: () => void }) => {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedApplication} onOpenChange={(open) => !open && setSelectedApplication(null)}>
+        <DialogContent className="sm:max-w-[680px]">
+          {selectedApplication && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Отклик на вакансию</DialogTitle>
+                <DialogDescription>Детали вашего отклика.</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div>
+                  <div className="text-sm text-muted-foreground">Позиция</div>
+                  <div className="font-medium">{selectedApplication.position}</div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Компания</div>
+                    <div className="font-medium">{selectedApplication.company}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Дата</div>
+                    <div className="font-medium">{selectedApplication.date}</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Статус</div>
+                    <Badge variant="secondary">{selectedApplication.status}</Badge>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Job ID</div>
+                    <div className="font-mono text-sm">{selectedApplication.jobId}</div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setSelectedApplication(null)}>
+                    Закрыть
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      void handleDeleteJobApplication(selectedApplication.jobId);
+                      setSelectedApplication(null);
+                    }}
+                  >
+                    Удалить отклик
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

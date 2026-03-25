@@ -16,7 +16,7 @@ import {
   Play
 } from "lucide-react";
 import { TestQuiz } from "./TestQuiz";
-import { testCategories, tests } from "@/data/testData";
+import { testCategories as baseCategories, tests as baseTests } from "@/data/testData";
 import { Test, TestResult } from "@/types";
 import { useAuth } from "@/auth/AuthContext";
 import { apiFetch } from "@/auth/api";
@@ -25,6 +25,7 @@ export const TestCenter = ({ onRequireAuth }: { onRequireAuth?: () => void }) =>
   const { user, loading: authLoading } = useAuth();
   const [selectedTest, setSelectedTest] = useState<Test | null>(null);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [dbTests, setDbTests] = useState<Test[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -36,6 +37,41 @@ export const TestCenter = ({ onRequireAuth }: { onRequireAuth?: () => void }) =>
       .then(setTestResults)
       .catch(() => setTestResults([]));
   }, [user?.id, authLoading]);
+
+  useEffect(() => {
+    if (!user) {
+      setDbTests([]);
+      return;
+    }
+    if (authLoading) return;
+    void apiFetch<Test[]>("/api/tests/definitions")
+      .then(setDbTests)
+      .catch(() => setDbTests([]));
+  }, [user?.id, authLoading]);
+
+  const mergedTests: Test[] = (() => {
+    const map = new Map<string, Test>();
+    for (const t of baseTests) map.set(t.id, t);
+    for (const t of dbTests) map.set(t.id, t);
+    return [...map.values()];
+  })();
+
+  const categoryKeyFor = (categoryId: string) => {
+    if (categoryId === "frontend") return "Frontend";
+    if (categoryId === "backend") return "Backend";
+    if (categoryId === "database") return "Database";
+    if (categoryId === "mobile") return "Mobile";
+    if (categoryId === "devops") return "DevOps";
+    if (categoryId === "ml") return "ML";
+    return categoryId;
+  };
+
+  const testCategories = baseCategories.map((c) => ({
+    ...c,
+    tests: mergedTests.filter((t) => t.category === categoryKeyFor(c.id)),
+  }));
+
+  const tests = mergedTests;
 
   const iconMap = {
     Code,

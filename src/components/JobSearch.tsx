@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   MapPin, 
   Clock, 
@@ -27,6 +28,9 @@ export const JobSearch = ({ onRequireAuth }: { onRequireAuth?: () => void }) => 
   const [showFilters, setShowFilters] = useState(false);
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [dbJobs, setDbJobs] = useState<Job[]>([]);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [visibleCount, setVisibleCount] = useState(6);
   
   const [filters, setFilters] = useState<JobFilter>({
     query: "",
@@ -47,8 +51,27 @@ export const JobSearch = ({ onRequireAuth }: { onRequireAuth?: () => void }) => 
       .catch(() => setApplications([]));
   }, [user?.id, authLoading]);
 
+  useEffect(() => {
+    if (!user) {
+      setDbJobs([]);
+      return;
+    }
+    if (authLoading) return;
+    void apiFetch<Job[]>("/api/jobs")
+      .then(setDbJobs)
+      .catch(() => setDbJobs([]));
+  }, [user?.id, authLoading]);
+
+  // Merge demo jobs with DB jobs (DB wins on id collision)
+  const mergedJobs = useMemo(() => {
+    const map = new Map<string, Job>();
+    for (const j of jobsDatabase) map.set(j.id, j);
+    for (const j of dbJobs) map.set(j.id, j);
+    return [...map.values()];
+  }, [dbJobs]);
+
   // Filter jobs based on search and filters
-  const filteredJobs = jobsDatabase.filter(job => {
+  const filteredJobs = useMemo(() => mergedJobs.filter(job => {
     const matchesQuery = !searchQuery || 
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,7 +84,14 @@ export const JobSearch = ({ onRequireAuth }: { onRequireAuth?: () => void }) => 
       filters.skills.some(skill => job.skills.includes(skill));
 
     return matchesQuery && matchesLocation && matchesSkills;
-  });
+  }), [mergedJobs, searchQuery, filters.location, filters.skills]);
+
+  useEffect(() => {
+    setVisibleCount(6);
+  }, [searchQuery, filters.location, filters.experience, filters.skills.join(","), filters.salary.min, filters.salary.max]);
+
+  const visibleJobs = filteredJobs.slice(0, visibleCount);
+  const canLoadMore = visibleJobs.length < filteredJobs.length;
 
   const handleSaveJob = (jobId: string) => {
     if (savedJobs.includes(jobId)) {
@@ -340,7 +370,7 @@ export const JobSearch = ({ onRequireAuth }: { onRequireAuth?: () => void }) => 
 
         {/* Job Results */}
         <div className="grid grid-cols-1 gap-6">
-          {filteredJobs.map((job) => {
+          {visibleJobs.map((job) => {
             const isApplied = applications.some(app => app.jobId === job.id);
             const isSaved = savedJobs.includes(job.id);
             
@@ -416,7 +446,7 @@ export const JobSearch = ({ onRequireAuth }: { onRequireAuth?: () => void }) => 
                     </div>
                     
                     <div className="flex gap-2">
-                      <Button variant="outline">
+                      <Button variant="outline" onClick={() => setSelectedJob(job)}>
                         Подробнее
                       </Button>
                       <Button 
@@ -453,12 +483,72 @@ export const JobSearch = ({ onRequireAuth }: { onRequireAuth?: () => void }) => 
         {/* Load More */}
         {filteredJobs.length > 0 && (
           <div className="text-center mt-8">
-            <Button variant="outline" size="lg">
-              Показать больше вакансий
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setVisibleCount((p) => Math.min(p + 6, filteredJobs.length))}
+              disabled={!canLoadMore}
+            >
+              {canLoadMore ? "Показать больше вакансий" : "Все вакансии показаны"}
             </Button>
           </div>
         )}
       </div>
+
+      <Dialog open={!!selectedJob} onOpenChange={(open) => !open && setSelectedJob(null)}>
+        <DialogContent className="sm:max-w-[760px]">
+          {selectedJob && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedJob.title}</DialogTitle>
+                <DialogDescription>
+                  {selectedJob.company} • {selectedJob.location} • {selectedJob.type}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {selectedJob.aiMatch ? (
+                    <Badge className="bg-gradient-to-r from-success to-accent text-white">
+                      ИИ совпадение: {selectedJob.aiMatch}%
+                    </Badge>
+                  ) : null}
+                  <Badge variant="secondary">{selectedJob.salary}</Badge>
+                  <Badge variant="outline">{selectedJob.postedTime}</Badge>
+                </div>
+
+                <div className="text-sm text-muted-foreground whitespace-pre-line">
+                  {selectedJob.description}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {selectedJob.skills.map((s) => (
+                    <Badge key={s} variant="outline">
+                      {s}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setSelectedJob(null)}>
+                    Закрыть
+                  </Button>
+                  <Button
+                    className="bg-gradient-to-r from-primary to-accent"
+                    onClick={() => {
+                      handleApplyJob(selectedJob);
+                      setSelectedJob(null);
+                    }}
+                    disabled={applications.some((a) => a.jobId === selectedJob.id)}
+                  >
+                    {applications.some((a) => a.jobId === selectedJob.id) ? "Отклик уже отправлен" : "Откликнуться"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

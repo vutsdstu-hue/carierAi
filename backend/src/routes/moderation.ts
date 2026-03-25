@@ -59,9 +59,23 @@ router.patch(
     const { status } = parsed.data;
     const { id } = req.params;
 
+    const existing = await prisma.jobApplication.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ message: "Job application not found" });
+
     const updated = await prisma.jobApplication.update({
       where: { id },
       data: { status },
+    });
+
+    await prisma.jobApplicationLog.create({
+      data: {
+        jobApplicationId: updated.id,
+        jobId: updated.jobId,
+        actorUserId: req.user!.id,
+        action: "STATUS_CHANGED",
+        fromStatus: existing.status,
+        toStatus: updated.status,
+      },
     });
 
     res.json({
@@ -84,10 +98,28 @@ router.patch(
     const { status } = parsed.data;
     const { jobId } = req.params;
 
+    const existingApps = await prisma.jobApplication.findMany({
+      where: { jobId },
+      select: { id: true, status: true, jobId: true },
+    });
+
     const result = await prisma.jobApplication.updateMany({
       where: { jobId },
       data: { status },
     });
+
+    if (existingApps.length > 0) {
+      await prisma.jobApplicationLog.createMany({
+        data: existingApps.map((a) => ({
+          jobApplicationId: a.id,
+          jobId: a.jobId,
+          actorUserId: req.user!.id,
+          action: "STATUS_CHANGED",
+          fromStatus: a.status,
+          toStatus: status,
+        })),
+      });
+    }
 
     res.json({ ok: true, updatedCount: result.count });
   }
@@ -99,7 +131,21 @@ router.delete(
   requireRole(["MODERATOR", "ADMIN"]),
   async (req, res) => {
     const { id } = req.params;
+    const existing = await prisma.jobApplication.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ message: "Job application not found" });
+
     await prisma.jobApplication.delete({ where: { id } });
+
+    await prisma.jobApplicationLog.create({
+      data: {
+        jobApplicationId: id,
+        jobId: existing.jobId,
+        actorUserId: req.user!.id,
+        action: "DELETED",
+        fromStatus: existing.status,
+        toStatus: null,
+      },
+    });
     res.json({ ok: true });
   }
 );
