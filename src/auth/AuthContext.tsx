@@ -67,20 +67,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setLoading(true);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data?.message ?? "Login failed");
-    }
+    try {
+      const data = await apiFetch<{ token: string; user: AuthUser }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
 
-    setAuthToken(data.token);
-    setToken(data.token);
-    setUser(data.user);
-    setLoading(false);
+      setAuthToken(data.token);
+      setToken(data.token);
+      setUser(data.user);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (payload: {
@@ -95,20 +93,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     joinDate?: string;
   }) => {
     setLoading(true);
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data?.message ?? "Registration failed");
-    }
+    try {
+      const data = await apiFetch<{ token: string; user: AuthUser }>("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-    setAuthToken(data.token);
-    setToken(data.token);
-    setUser(data.user);
-    setLoading(false);
+      setAuthToken(data.token);
+      setToken(data.token);
+      setUser(data.user);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
