@@ -20,7 +20,13 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const url = apiBase ? `${apiBase.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}` : path;
+  const normalizedBase = apiBase.replace(/\/$/, "");
+  const normalizedPath = (path.startsWith("/") ? path : `/${path}`).replace(/\/+$/, "");
+  const pathWithoutDuplicateApi =
+    normalizedBase.endsWith("/api") && normalizedPath.startsWith("/api/")
+      ? normalizedPath.replace(/^\/api/, "")
+      : normalizedPath;
+  const url = normalizedBase ? `${normalizedBase}${pathWithoutDuplicateApi || "/"}` : path;
   const res = await fetch(url, {
     ...options,
     headers,
