@@ -3,7 +3,13 @@ import { getAuthToken } from "./authStorage";
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const isFormDataBody = typeof FormData !== "undefined" && options?.body instanceof FormData;
-  const apiBase = (import.meta as any).env?.VITE_API_BASE_URL ? String((import.meta as any).env.VITE_API_BASE_URL) : "";
+  let apiBase = (import.meta as any).env?.VITE_API_BASE_URL ? String((import.meta as any).env.VITE_API_BASE_URL) : "";
+  if (!apiBase && typeof window !== "undefined") {
+    // Fallback for GitHub Pages if Actions vars weren't injected into the build
+    if (window.location.hostname.endsWith("github.io")) {
+      apiBase = "https://carierai.onrender.com/api";
+    }
+  }
 
   const headers: Record<string, string> = {
     ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
