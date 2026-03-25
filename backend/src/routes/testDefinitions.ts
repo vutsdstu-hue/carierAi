@@ -1,11 +1,11 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 
 import { prisma } from "@/utils/prisma";
 import { requireAuth } from "@/middleware/auth";
 
 const router = Router();
 
-router.get("/tests/definitions", requireAuth, async (_req, res) => {
+router.get("/tests/definitions", requireAuth, async (_req: Request, res: Response) => {
   const defs = await prisma.testDefinition.findMany({
     orderBy: { createdAt: "desc" },
   });

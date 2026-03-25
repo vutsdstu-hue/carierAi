@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 
 import { prisma } from "@/utils/prisma";
@@ -16,7 +16,7 @@ const JobApplicationBodySchema = z.object({
   date: z.string().min(1),
 });
 
-router.get("/job-applications", requireAuth, async (req, res) => {
+router.get("/job-applications", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const apps = await prisma.jobApplication.findMany({
     where: { userId },
@@ -35,7 +35,7 @@ router.get("/job-applications", requireAuth, async (req, res) => {
   );
 });
 
-router.post("/job-applications", requireAuth, async (req, res) => {
+router.post("/job-applications", requireAuth, async (req: Request, res: Response) => {
   const parsed = JobApplicationBodySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid job application payload", errors: parsed.error.flatten() });
@@ -75,7 +75,7 @@ router.post("/job-applications", requireAuth, async (req, res) => {
   });
 });
 
-router.delete("/job-applications/:jobId", requireAuth, async (req, res) => {
+router.delete("/job-applications/:jobId", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const jobId = req.params.jobId;
 

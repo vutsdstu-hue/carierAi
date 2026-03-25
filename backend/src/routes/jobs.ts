@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 
 import { prisma } from "@/utils/prisma";
@@ -19,7 +19,7 @@ const JobBodySchema = z.object({
   aiMatch: z.number().int().min(0).max(100).optional(),
 });
 
-router.get("/jobs", requireAuth, async (_req, res) => {
+router.get("/jobs", requireAuth, async (_req: Request, res: Response) => {
   const jobs = await prisma.job.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -31,7 +31,7 @@ router.get(
   "/admin/jobs",
   requireAuth,
   requireRole(["ADMIN"]),
-  async (_req, res) => {
+  async (_req: Request, res: Response) => {
     const jobs = await prisma.job.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -44,7 +44,7 @@ router.post(
   "/admin/jobs",
   requireAuth,
   requireRole(["ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const parsed = JobBodySchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid payload", errors: parsed.error.flatten() });
@@ -62,7 +62,7 @@ router.patch(
   "/admin/jobs/:id",
   requireAuth,
   requireRole(["ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const parsed = JobBodySchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid payload", errors: parsed.error.flatten() });
@@ -81,7 +81,7 @@ router.delete(
   "/admin/jobs/:id",
   requireAuth,
   requireRole(["ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     await prisma.job.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   }

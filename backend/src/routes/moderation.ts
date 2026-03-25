@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 
 import { prisma } from "@/utils/prisma";
@@ -14,7 +14,7 @@ router.get(
   "/moderation/job-applications",
   requireAuth,
   requireRole(["MODERATOR", "ADMIN"]),
-  async (_req, res) => {
+  async (_req: Request, res: Response) => {
     const apps = await prisma.jobApplication.findMany({
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: "desc" },
@@ -52,7 +52,7 @@ router.patch(
   "/moderation/job-applications/:id",
   requireAuth,
   requireRole(["MODERATOR", "ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const parsed = UpdateBodySchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Invalid payload", errors: parsed.error.flatten() });
 
@@ -89,7 +89,7 @@ router.patch(
   "/moderation/job-applications/by-job/:jobId",
   requireAuth,
   requireRole(["MODERATOR", "ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const parsed = UpdateBodySchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid payload", errors: parsed.error.flatten() });
@@ -129,7 +129,7 @@ router.delete(
   "/moderation/job-applications/:id",
   requireAuth,
   requireRole(["MODERATOR", "ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const { id } = req.params;
     const existing = await prisma.jobApplication.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ message: "Job application not found" });
@@ -154,7 +154,7 @@ router.get(
   "/moderation/test-results",
   requireAuth,
   requireRole(["MODERATOR", "ADMIN"]),
-  async (_req, res) => {
+  async (_req: Request, res: Response) => {
     const results = await prisma.testResult.findMany({
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { id: "desc" },
@@ -190,7 +190,7 @@ router.delete(
   "/moderation/test-results/:id",
   requireAuth,
   requireRole(["MODERATOR", "ADMIN"]),
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const { id } = req.params;
     await prisma.testResult.delete({ where: { id } });
     res.json({ ok: true });

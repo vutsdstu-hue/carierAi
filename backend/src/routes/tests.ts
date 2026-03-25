@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 
 import { prisma } from "@/utils/prisma";
@@ -16,7 +16,7 @@ const TestResultBodySchema = z.object({
   timeSpent: z.number().int().min(0),
 });
 
-router.get("/tests", requireAuth, async (req, res) => {
+router.get("/tests", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const results = await prisma.testResult.findMany({
     where: { userId },
@@ -35,7 +35,7 @@ router.get("/tests", requireAuth, async (req, res) => {
   );
 });
 
-router.post("/tests/results", requireAuth, async (req, res) => {
+router.post("/tests/results", requireAuth, async (req: Request, res: Response) => {
   const parsed = TestResultBodySchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid test result payload", errors: parsed.error.flatten() });
@@ -74,7 +74,7 @@ router.post("/tests/results", requireAuth, async (req, res) => {
   });
 });
 
-router.delete("/tests/:testId", requireAuth, async (req, res) => {
+router.delete("/tests/:testId", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const testId = req.params.testId;
 

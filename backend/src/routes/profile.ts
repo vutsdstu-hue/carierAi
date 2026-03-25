@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 
 import { prisma } from "@/utils/prisma";
@@ -22,7 +22,7 @@ const SkillSchema = z.object({
   category: z.string().min(1),
 });
 
-router.get("/profile", requireAuth, async (req, res) => {
+router.get("/profile", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const [user, skills] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId } }),
@@ -51,7 +51,7 @@ router.get("/profile", requireAuth, async (req, res) => {
   });
 });
 
-router.put("/profile", requireAuth, async (req, res) => {
+router.put("/profile", requireAuth, async (req: Request, res: Response) => {
   const bodySchema = z.object({
     user: UserBodySchema,
     skills: z.array(SkillSchema),
